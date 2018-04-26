@@ -4,30 +4,82 @@
 	(:use ring.adapter.jetty)
 	(:require [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
          [ring.util.response :refer [response]])
-	(:require [ring.middleware.session :refer[wrap-session]])
-	(:require [compojure.core :refer :all])
+	(:require [compojure.core :refer :all] [compojure.route :as route])
 	(:require [clojure.java.jdbc :refer :all :as jdbc])
 	(:use clojure.java.jdbc)
 	(:require [clojure.string :as str])
+	(:require [bcrypt-clj.auth :as auth])
 	(:require [ring-debug-logging.core :refer [wrap-with-logger]])
 )
 
-(defn signon [db]
-	"foo"
+(defn return-error [message]
+	{:status 400 :body message}
+)
+
+(defn not-found []
+	{:status 200 :body {:found false :id 0}}
+)
+
+(defn found [id]
+	{:status 200 :body {:found true :id id}}
+)
+
+(defn signon [db member-name sent-password]
+	(let 
+		[
+			query-string "SELECT member_id,password FROM members WHERE name=?"
+			result (query db [query-string member-name])
+		]
+		(if (== 1 (count result))
+			(let
+				[
+					data (first result)
+					id (get data :member_id)
+					stored-password (get data :password)
+				]
+				(if (auth/check-password sent-password stored-password)
+					(found id)
+					(not-found)
+				)
+			)
+			(not-found)
+		)
+	)
+)
+
+(defn find-member [db member-name]
+	(let 
+		[
+			query-string "SELECT member_id FROM members WHERE name=?"
+			result (query db [query-string member-name])
+		]
+		(if (== 1 (count result))
+			(let
+				[
+					data (first result)
+					id (get data :member_id)
+				]
+				(found id)
+			)
+			(not-found)
+		)
+	)
+)
+
+(defn shutdown [saved-phrase given-phrase]
+	(if (== 0 (compare saved-phrase given-phrase))
+		(System/exit 0)
+		(return-error "Bad body")
+	)
 )
 
 (defroutes member-routes
-	(POST "/signon" [:as {db :connection}] (signon db))
-)
-
-(defn make-wrap-db [db-url]
-	(fn [handler]  
-		(fn [req]   
-			(with-db-connection [db {:connection-uri db-url}]
-				(handler (assoc req :connection db))
-			)
-		)
-	)
+	(POST "/login" [:as {db :connection {member "member" password "password"} :body}] 
+		(signon db member password))
+	(POST "/find" [:as {db :connection {member "member"} :body}] (find-member db member))
+	(POST "/shutdown" [:as {saved-phrase :shutdown {given-phrase "shutdown"} :body}] 
+		(shutdown saved-phrase given-phrase))
+	(route/not-found {:status 404})
 )
 
 (defn cors [handler]
@@ -49,45 +101,66 @@
      )
 )
 
-(defn make-handler [db-url] 
-	(let [wrap-db (make-wrap-db db-url)] 
+(defn make-wrap-db [db-url]
+	(fn [handler]  
+		(fn [req]   
+			(with-db-connection [db {:connection-uri db-url}]
+				(handler (assoc req :connection db))
+			)
+		)
+	)
+)
+
+(defn make-insert-shutdown [shutdown]
+	(fn [handler]  
+		(fn [req]   
+			(handler (assoc req :shutdown shutdown))
+		)
+	)
+)
+
+(defn make-handler [db-url shutdown] 
+	(let 
+		[
+			wrap-db (make-wrap-db db-url)
+			insert-shutdown (make-insert-shutdown shutdown)
+		] 
 		(-> member-routes
 			(wrap-db)
 			(wrap-json-body)
 			(wrap-json-response)
-			(wrap-session)
+			(insert-shutdown)
 			(cors)
 ;			(wrap-with-logger)
 		)
 	)
 )
 
-(defn get-env [name]
-	(let [value (System/getenv name)]
-		(if (nil? value)
-			(println (str "Evironment variable " name " is undefined"))
-		)
-		value
-	)
-)
-
 (defn -main
-  	"Cabal voting server"
+  	"Mock NDP members server"
   	[& args]
-  	(if (== 0 (count args))
-		(let [url (get-env "JDBC_DATABASE_URL") 
-				portString (get-env "PORT")]
-			(if (and (some? url) (some? portString))
-				(try
-					(let [port (Integer/parseInt portString)]
-						(run-jetty (make-handler url) {:port port})
-					)
-					(catch NumberFormatException exception 
-						(println (str portString " is not an int"))
-					)
+  	(if (== 5 (count args))
+		(let 
+			[
+				port-string (nth args 0)
+				db-name (nth args 1)
+				db-user (nth args 2)
+				db-password (nth args 3)
+				shutdown (nth args 4)
+			]
+			(try
+				(let 
+					[
+						port (Integer/parseInt port-string)
+						url (str "jdbc:postgresql:" db-name "?user=" db-user "&password=" db-password)
+					]
+					(run-jetty (make-handler url shutdown) {:port port})
+				)
+				(catch NumberFormatException exception 
+					(println (str port-string " is not an int"))
 				)
 			)
-		)  	
-	  	(println "This programme has no arguments")
+		)
+	  	(println "Usage: mambers port db-name db-user db-password shutdown-phrase")
 	)
- )
+)

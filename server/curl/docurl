@@ -1,0 +1,1 @@
+curl -v -H "Origin: http://localhost" -H "Content-Type:application/json" -H "Accept: application/json" -d @- http://localhost:8282/$1

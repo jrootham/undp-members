@@ -1,0 +1,25 @@
+CREATE TABLE members 
+(
+    member_id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    email TEXT NOT NULL,
+    valid BOOLEAN NOT NULL DEFAULT TRUE,
+    banned BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE actions
+(
+	action_id INTEGER PRIMARY KEY,
+	label TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE audit
+(
+	audit_id SERIAL PRIMARY KEY,
+	action_id INTEGER NOT NULL,
+	actor_id INTEGER NOT NULL,
+	target_id INTEGER NOT NULL,
+	done_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
