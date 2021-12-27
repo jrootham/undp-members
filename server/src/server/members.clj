@@ -1,5 +1,5 @@
 (ns server.members
-  (:gen-class)
+	(:gen-class)
 	(:require [com.unbounce.encors :refer [wrap-cors]])
 	(:use ring.adapter.jetty)
 	(:require [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
@@ -161,6 +161,6 @@
 				)
 			)
 		)
-	  	(println "Usage: mambers port db-name db-user db-password shutdown-phrase")
+	  	(println "Usage: members port db-name db-user db-password shutdown-phrase")
 	)
 )

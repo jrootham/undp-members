@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [
-  					[org.clojure/clojure "1.8.0"]
+  				[org.clojure/clojure "1.8.0"]
 					[ring/ring-core "1.6.2"]
 					[ring/ring-jetty-adapter "1.6.2"]
 					[com.unbounce/encors "2.3.0"]
@@ -13,7 +13,7 @@
 					[org.clojure/java.jdbc "0.7.1"]
 					[org.clojure/data.json "0.2.6"]
 					[compojure "1.6.0"]
-  					[bcrypt-clj "0.3.3"]
+  				[bcrypt-clj "0.3.3"]
 					[bananaoomarang/ring-debug-logging "1.1.0"]
   				]
   :main ^:skip-aot server.members
